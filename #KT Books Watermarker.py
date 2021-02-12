@@ -7,6 +7,20 @@
 #Outputs: zip files sent to email address in outoook 
 #Limitations: Outlook must be open when run
 
+#CUSTOMIZATIONS ----------------------------------------------------------
+filePathDir = r"C:\Users\SCHAGPAR\OneDrive\Documents\Personal\Filing Cabinet\Coding Projects\KT Books Watermarker"
+copyrightLine = "Copyright (C) Kepner-Tregoe All Rights Reserved"
+emailSubject = "KT Digital Books for your upcoming class"
+emailBody = "Attached please find your KT Books Digital Materials. Enjoy your training session!"
+ccEmail = "judy@kepner-tregoe.com"
+auditEmail = "creppy@kepner-tregoe.com"
+auditSubjectEmail = "KT Digital Materials Audit Email"
+auditCCEmail = "schagpar@kepner-tregoe.com"
+
+#GLOBAL VARIABLES -------------------------------------------------------------
+auditReport = ""
+
+#LIBRARY IMPORTS ---------------------------------------------------------------
 #Libraries for CSV Manipulation
 from csv import reader
 
@@ -16,7 +30,7 @@ import os, errno
 
 #Libraries for Creating a Watermark
 import fpdf #pip install fdpf
-from datetime import date
+from datetime import date, datetime
 
 #Libraries for Merging PDFs
 import PyPDF2 #pip install pypdf2
@@ -27,8 +41,7 @@ import win32com.client as win32 #pip install pypiwin32
 #ZIP Library
 from zipfile import ZipFile
 
-filePathDir = r"C:\Users\SCHAGPAR\OneDrive\Documents\Personal\Filing Cabinet\Coding Projects\KT Books Watermarker"
-
+#SUBROUTINES -------------------------------------------------------------
 def read_list(listFileName = ''):
     # open file in read mode
     with open(listFileName, 'r') as read_obj:
@@ -39,6 +52,7 @@ def read_list(listFileName = ''):
             
             #Set today's date for the files
             today = date.today()
+            audit_log("Materials Production Begins")
 
             # Iterate over each row after the header in the csv
             for row in csv_reader:
@@ -46,21 +60,26 @@ def read_list(listFileName = ''):
                 print(row)
 
                 #DO THE WORK
+                #audit_log("Materials for " + row[0] + ' ' + row[1] + " started")
                 create_watermark('These materials produced for ' + row[0] + ' ' + row[1] + ' on ' + today.strftime("%B %d, %Y") + ' and may not be redistributed')
                 merge_pdf(row[0] + row [1], 'notes.pdf')
                 merge_pdf(row[0] + row [1], 'cases.pdf')
                 merge_pdf(row[0] + row [1], 'cards.pdf')
                 merge_pdf(row[0] + row [1], 'extra.pdf')
+                #audit_log("Materials for " + row[0] + ' ' + row[1] + " Watermarked")
                 zip_pdf(row[0] + row [1])
-                create_mail("Hi " + row[0] + " " + row [1] + " attached please find your KT Books Digital Materials. Enjoy your training session!", "KT Digital Books for your upcoming class", row[2], row[0] + row [1] + '.zip', send=False)
+                #audit_log("Materials for " + row[0] + ' ' + row[1] + " Compressed")
+                create_mail("Hi " + row[0] + " " + row [1] + ", " + emailBody, emailSubject, row[2], row[0] + row [1] + '.zip', send=False)
+                audit_log("Materials for " + row[0] + ' ' + row[1] + " Sent")
                 cleanup_folder(row[0] + row [1])
-
+                #audit_log("Materials for " + row[0] + ' ' + row[1] + " Removed from Local Drive")
+                
 def create_watermark(watermarkText = ''):
     pdf = fpdf.FPDF(format='letter') #pdf format
     pdf.add_page() #create new page
     pdf.set_font("Arial", size=12) # font and textsize
     pdf.cell(200, 10, txt=watermarkText, ln=1, align="L")
-    pdf.cell(200, 10, txt='Copyright (C) Kepner-Tregoe All Rights Reserved', ln=2, align="L")
+    pdf.cell(200, 10, txt=copyrightLine, ln=2, align="L")
     
     pdf.output("watermark.pdf")
 
@@ -110,6 +129,7 @@ def create_mail(text, subject, recipient, attachmentName, send=True):
     outlook = win32.Dispatch('outlook.application')
     mail = outlook.CreateItem(0)
     mail.To = recipient
+    mail.CC = ccEmail
     mail.Subject = subject
     mail.HtmlBody = text
     attachment1 = os.path.join(filePathDir, attachmentName)
@@ -133,6 +153,7 @@ def zip_pdf(participantName = ''):
         zipObj.write(participantName + 'cards.pdf')
     if os.path.isfile(participantName + 'extra.pdf'):
         zipObj.write(participantName + 'extra.pdf')
+    
     # close the Zip File
     zipObj.close()
 
@@ -151,5 +172,24 @@ def cleanup_file(filename):
         if e.errno != errno.ENOENT: # errno.ENOENT = no such file or directory
             raise # re-raise exception if a different error occurred
 
-#Begin execution
+def audit_log(auditEvent=""):   
+    global auditReport 
+    
+    auditReport = (auditReport + "\n" + str(datetime.now()) + " - " + auditEvent)
+
+def send_audit_log(send=False):
+    outlook = win32.Dispatch('outlook.application')
+    mail = outlook.CreateItem(0)
+    mail.To = auditEmail
+    mail.CC = auditCCEmail
+    mail.Subject = auditSubjectEmail
+    mail.HtmlBody = auditReport
+    
+    if send:
+        mail.send()
+    else:
+        mail.save()
+
+#MAIN EXECUTION ------------------------------------------------------------
 read_list('list.csv')
+send_audit_log(False)
