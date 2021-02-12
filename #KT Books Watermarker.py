@@ -2,22 +2,23 @@
 #Author: Shane Chagpar
 #Inception Date: 2020 12 08
 #Formats PDFs with a watermark and emails them to a mail merge list from excel
-#Requires Libraties: Pypdf2, fpdp, pypiwin32
+#Requires Libraries: Pypdf2, fpdp, pypiwin32, pikepdf
 #Inputs: list.csv, cards.pdf, cases.pdf, notes.pdf, extra.pdf in same folder
 #Outputs: zip files sent to email address in outoook 
 #Limitations: Outlook must be open when run
 
 #CUSTOMIZATIONS ----------------------------------------------------------
-filePathDir = r"C:\Users\SCHAGPAR\OneDrive\Documents\Personal\Filing Cabinet\Coding Projects\KT Books Watermarker"
 copyrightLine = "Copyright (C) Kepner-Tregoe All Rights Reserved"
 emailSubject = "KT Digital Books for your upcoming class"
 emailBody = "Attached please find your KT Books Digital Materials. Enjoy your training session!"
-ccEmail = "judy@kepner-tregoe.com"
+ccEmail = "jneylan@kepner-tregoe.com"
 auditEmail = "creppy@kepner-tregoe.com"
 auditSubjectEmail = "KT Digital Materials Audit Email"
-auditCCEmail = "schagpar@kepner-tregoe.com"
+auditCCEmail = ""
+pdfPassword = "KTPassword"
 
 #GLOBAL VARIABLES -------------------------------------------------------------
+filePathDir = r"C:\Users\SCHAGPAR\OneDrive\Documents\Personal\Filing Cabinet\Coding Projects\KT Books Watermarker"
 auditReport = ""
 
 #LIBRARY IMPORTS ---------------------------------------------------------------
@@ -34,6 +35,10 @@ from datetime import date, datetime
 
 #Libraries for Merging PDFs
 import PyPDF2 #pip install pypdf2
+
+#for Encryption 
+import pikepdf
+from pikepdf import Pdf
 
 #Libraies for CreateMail
 import win32com.client as win32 #pip install pypiwin32
@@ -61,7 +66,7 @@ def read_list(listFileName = ''):
 
                 #DO THE WORK
                 #audit_log("Materials for " + row[0] + ' ' + row[1] + " started")
-                create_watermark('These materials produced for ' + row[0] + ' ' + row[1] + ' on ' + today.strftime("%B %d, %Y") + ' and may not be redistributed')
+                create_watermark('These materials produced for ' + row[0] + ' ' + row[1] + ' on ' + today.strftime("%B %d, %Y") + ' and may not be redistributed.')
                 merge_pdf(row[0] + row [1], 'notes.pdf')
                 merge_pdf(row[0] + row [1], 'cases.pdf')
                 merge_pdf(row[0] + row [1], 'cards.pdf')
@@ -77,9 +82,9 @@ def read_list(listFileName = ''):
 def create_watermark(watermarkText = ''):
     pdf = fpdf.FPDF(format='letter') #pdf format
     pdf.add_page() #create new page
-    pdf.set_font("Arial", size=12) # font and textsize
-    pdf.cell(200, 10, txt=watermarkText, ln=1, align="L")
-    pdf.cell(200, 10, txt=copyrightLine, ln=2, align="L")
+    pdf.set_font("Arial", 'B', size=8) # font and textsize
+    pdf.cell(0, 10, txt=watermarkText + " " + copyrightLine, ln=1, align="C")
+    #pdf.cell(0, 10, txt=copyrightLine, ln=2, align="L")
     
     pdf.output("watermark.pdf")
 
@@ -91,26 +96,22 @@ def merge_pdf(participantName, pdf_file = ''):
     try:
         input_file = open(pdf_file,'rb')
         input_pdf = PyPDF2.PdfFileReader(input_file)
-
+        output = PyPDF2.PdfFileWriter()
+        
         #Open and read watermark file
         watermark_file = open(watermark,'rb')
         watermark_pdf = PyPDF2.PdfFileReader(watermark_file)
 
-        #Get first page of original file
-        pdf_page = input_pdf.getPage(0)
+        #Watermark each page in the PDF
+        for i in range(input_pdf.getNumPages()):
+            #Get first page of original file
+            pdf_page = input_pdf.getPage(i)
 
-        #Get first page of watermark file
-        watermark_page = watermark_pdf.getPage(0)
+            #Perform Merge with first page of watermark PDF
+            pdf_page.mergePage(watermark_pdf.getPage(0))
 
-        #Perform Merge
-        pdf_page.mergePage(watermark_page)
-
-        #Save Output in memory
-        output = PyPDF2.PdfFileWriter()
-        output.addPage(pdf_page)
-
-        #Encrypt the PDF with password on this line - Future Use
-        #output.encrypt('KTPassword')
+            #Save Output in memory
+            output.addPage(pdf_page)
 
         #Save output from memory to disk
         merged_file = open(merged_file,'wb')
@@ -118,11 +119,22 @@ def merge_pdf(participantName, pdf_file = ''):
 
         #Cleanup
         merged_file.close()
+        
+        #Encrypt with PikePDF
+        encrypt_PDF(participantName + pdf_file)
+        
+        #Cleanup
         watermark_file.close()
         input_file.close()
+
     except IOError:
         print ("Error: File does not exist")
     return 0
+
+def encrypt_PDF(sourceFileName = ''):
+    pdf = pikepdf.Pdf.open(sourceFileName, allow_overwriting_input=True)
+    pdfRestrictions = pikepdf.Permissions(accessibility=False, extract=False, print_lowres=False, print_highres=False, modify_annotation=False, modify_assembly=False, modify_form=False, modify_other=False)
+    pdf.save(sourceFileName, encryption=pikepdf.Encryption(user="", owner=pdfPassword, allow=pdfRestrictions))
 
 def create_mail(text, subject, recipient, attachmentName, send=True):
 
