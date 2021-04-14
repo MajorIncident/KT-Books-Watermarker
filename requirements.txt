@@ -1,0 +1,4 @@
+pywin32==300
+fpdf==1.7.2
+pikepdf==2.5.2
+PyPDF2==1.26.0
