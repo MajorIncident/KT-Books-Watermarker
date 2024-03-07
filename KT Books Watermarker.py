@@ -1,14 +1,21 @@
 #KT Books Watermarker
 #Author: Shane Chagpar
 #Inception Date: 2020 12 08
+#Release Date: 2021 04 15
+#Update Date: 2024 03 05
+#GitHub: https://github.com/MajorIncident/KT-Books-Watermarker
 #Formats PDFs with a watermark and emails them to a mail merge list from excel
 #Requires Libraries: Pypdf2, fpdf, pypiwin32, pikepdf --> Requirements.txt generated from pipreqs library
+#Requires Pre Install of V C++ Build Tools : https://visualstudio.microsoft.com/visual-cpp-build-tools/   run and select Desktop 
+#------>Install Desktop Development with C++ and in Individual Components Windows 11 SDK + C++ x64 Build Tools
 #Installation: pip install -r requirements.txt
+#UnInstallation: pip uninstall -r requirements.txt
 #Inputs: list.csv, cards.pdf, cases.pdf, notes.pdf, extra.pdf in same folder
 #Outputs: zip files sent to email address in outoook 
 #Limitations: Outlook must be open when run
+#Future: Use setuptools to buipld package distribtor, allow for github installation
 
-#Future: Use setuptools to build package distribtor 
+#Installation from github python -m pip install git+https://github.com/MajorIncident/KT-Books-Watermarker
 
 #CUSTOMIZATIONS ----------------------------------------------------------
 copyrightLine = "Copyright (C) Kepner-Tregoe All Rights Reserved"
@@ -19,6 +26,8 @@ auditEmail = "creppy@kepner-tregoe.com"
 auditSubjectEmail = "KT Digital Materials Audit Email"
 auditCCEmail = ""
 pdfPassword = "KTPassword"
+pdfPageFormat = 'l' #set to either 'p' for portrait or 'l' for letter'
+pdfWatermarkDepth = -21 #Depth of the watermark (height), negative number indicates start from the bottom -21 seems to be lowest 
 
 #GLOBAL VARIABLES -------------------------------------------------------------
 auditReport = ""
@@ -94,9 +103,10 @@ def read_list(listFileName = ''):
                 
 def create_watermark(watermarkText = ''):
     pdf = fpdf.FPDF(format='letter') #pdf format
-    pdf.add_page() #create new page
+    pdf.add_page(pdfPageFormat) #create new page #ADD STRING "p" for portrait "l" for landscape
     pdf.set_font("Arial", 'B', size=8) # font and textsize
-    pdf.cell(0, 10, txt=watermarkText + " " + copyrightLine, ln=1, align="C")
+    pdf.set_y(pdfWatermarkDepth)
+    pdf.cell(0, 0, txt=watermarkText + " " + copyrightLine, ln=1, align="C")
     #pdf.cell(0, 10, txt=copyrightLine, ln=2, align="L")
     
     pdf.output("watermark.pdf")
